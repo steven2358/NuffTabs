@@ -9,6 +9,8 @@ Specify the maximum number in the options. When you surpass the limit, an open t
 - Least Frequently Used: close the tab that was active the least time
 - Random: close a random tab (caution - only for daredevils)
 
+Chrome Store link: [https://chrome.google.com/webstore/detail/kemeihccgedidlokcbfhdekcfojpjjmp](https://chrome.google.com/webstore/detail/kemeihccgedidlokcbfhdekcfojpjjmp)
+
 License
 -------
 
