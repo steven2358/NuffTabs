@@ -1,0 +1,73 @@
+<html>
+<head>
+<title>'Nuff Tabs - Options</title>
+<style>
+body {
+  font-family:Helvetica,Arial,sans-serif;
+  font-size:small;
+  text-align: center;
+  margin: 10px 5px;
+  width: 180px;
+}
+#buttons {
+  margin: 20px;
+}
+#messages {
+  font-weight: bold;
+  color: green
+} 
+</style>
+<script src="options.js"></script>
+</head>
+<body>
+
+<h1>'Nuff Tabs</h1>
+
+<p>Tab limit:</p>
+<select id="maxTabs">
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+  <option value="6">6</option>
+  <option value="7">7</option>
+  <option value="8">8</option>
+  <option value="9">9</option>
+  <option value="10">10</option>
+  <option value="11">11</option>
+  <option value="12">12</option>
+  <option value="13">13</option>
+  <option value="14">14</option>
+  <option value="15">15</option>
+  <option value="20">20</option>
+  <option value="25">25</option>
+  <option value="30">30</option>
+  <option value="35">35</option>
+  <option value="40">40</option>
+  <option value="45">45</option>
+  <option value="50">50</option>
+</select>
+
+<p>Discard method:</p>
+<select id="discardCriterion">
+  <option value="oldest">oldest</option>
+  <option value="LRU">LRU</option>
+  <option value="LFU">LFU</option>
+  <option value="random">random</option>
+</select>
+
+<p>Show tab count:</p>
+<select id="showCount">
+  <option value="0">no</option>
+  <option value="1">yes</option>
+</select>
+
+<div id="buttons">
+<button id="saveCloseButton">Save and close</button>
+</div>
+
+<div id="messages"></div>
+
+</body>
+</html>
