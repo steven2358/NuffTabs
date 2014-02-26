@@ -184,19 +184,19 @@ chrome.tabs.onCreated.addListener(function(tab) {
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
-	debugLog("tab removed");
+	debugLog("tab " + tabId + " removed");
 	removeTimes(tabId);
 	updateTimes();
 	updateBadge();
 });
 
 chrome.tabs.onDetached.addListener(function(tab) {
-	debugLog("tab detached");
+	debugLog("tab " + tab.id + " detached");
 	updateBadge();
 });
 
 chrome.tabs.onAttached.addListener(function(tab) {
-	debugLog("tab attached");
+	debugLog("tab " + tab.id + " attached");
 	checkTabAdded(); // contains updateBadge
 });
 
