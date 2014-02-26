@@ -86,9 +86,12 @@ function updateTimes() {
 			tabTimes[currentTabId].lastActive = Date.now();
 			
 			// update total active time
-			tabTimes[currentTabId].totalActive = tabTimes[currentTabId].totalActive + (Date.now() - startActive);
+			var duration = Date.now() - startActive;
+			debugLog('Adding '+(Math.floor(duration/10)/100)+'s to tab '+currentTabId);
+			tabTimes[currentTabId].totalActive = tabTimes[currentTabId].totalActive + duration;
 		}
 		startActive = Date.now();
+		printTimes();
 	});
 	
 	// set the ID of the current tab
@@ -103,9 +106,9 @@ function checkTabAdded() {
 	
 	// check tabs of current window
 	chrome.tabs.query({ currentWindow: true }, function(tabs) {
-		printTimes();
+		//printTimes();
 		
-		debugLog("num of tabs: " +tabs.length)
+		//debugLog("num of tabs: " +tabs.length)
 		
 		// tab removal criterion
 		if (tabs.length - localStorage.maxTabs == 1) {
@@ -150,6 +153,7 @@ function checkTabAdded() {
 			chrome.tabs.get(tabId, function(tab){
 				debugLog('Removing tab '+tab.id+': '+tab.title+', active time '+(Math.floor(tabTimes[tab.id].totalActive/10)/100)+'s, last active: '+tabTimes[tab.id].lastActive);
 				removeTimes(tab.id);
+				printTimes();
 			});
 
 			// remove tab
@@ -166,15 +170,14 @@ function removeTimes(tabId) {
 }
 
 chrome.tabs.onActivated.addListener(function(activeInfo){
-	debugLog("tab activated");
-	printTimes();
+	debugLog("tab " + activeInfo.tabId + " activated");
 	updateTimes();
 	updateBadge();
 	// debugLog("Window=" + activeInfo.windowId + ", Tab="+activeInfo.tabId);
 });
 
 chrome.tabs.onCreated.addListener(function(tab) {
-	debugLog("tab created");
+	debugLog("tab " + tab.id + " created");
 	createTimes(tab.id);
 	updateTimes();
 	checkTabAdded(); // contains updateBadge
