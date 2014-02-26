@@ -4,7 +4,7 @@ var maxTabs; // maximum number of tabs allowed per window
 var startActive; // time at which active tab started being active
 var tabTimes = new Array(); // array with activity times (tab times table)
 
-var debug = false; // debug boolean
+var debug = true; // debug boolean
 
 function debugLog(string) {
 	if (debug) {
@@ -42,7 +42,6 @@ function init() {
 	// set the id of the current tab
 	chrome.tabs.query({ lastFocusedWindow: true, active: true }, function (tabs) {
 		currentTabId = tabs[0].id;
-		debugLog(currentTabId)
 	});
 	
 	// set the usage and last active time for each tab if necessary
@@ -95,7 +94,7 @@ function updateTimes() {
 	// set the ID of the current tab
 	chrome.tabs.query({ lastFocusedWindow: true, active: true }, function (tabs) {
 		currentTabId = tabs[0].id;
-		debugLog("Current: "+currentTabId);
+		//debugLog("Current: "+currentTabId);
 	});
 }
 
@@ -111,7 +110,7 @@ function checkTabAdded() {
 		// tab removal criterion
 		if (tabs.length - localStorage.maxTabs == 1) {
 			
-			debugLog(localStorage.discardCriterion);
+			// debugLog(localStorage.discardCriterion);
 
 			var tabId = tabs[0].id;
 			switch(localStorage.discardCriterion) {
@@ -147,11 +146,15 @@ function checkTabAdded() {
 				default:
 			}
 			
-			debugLog('Chosen: '+tabId)
+			//debugLog('Chosen: '+tabId)
+			chrome.tabs.get(tabId, function(tab){
+				debugLog('Removing tab '+tab.id+': '+tab.title+', active time '+(Math.floor(tabTimes[tab.id].totalActive/10)/100)+'s, last active: '+tabTimes[tab.id].lastActive);
+				removeTimes(tab.id);
+			});
 
 			// remove tab
 			chrome.tabs.remove(tabId, function() {});
-			removeTimes(tabId);
+			//removeTimes(tabId);
 		}
 		updateBadge();
 	});
@@ -167,7 +170,7 @@ chrome.tabs.onActivated.addListener(function(activeInfo){
 	printTimes();
 	updateTimes();
 	updateBadge();
-	debugLog("Window=" + activeInfo.windowId + ", Tab="+activeInfo.tabId);
+	// debugLog("Window=" + activeInfo.windowId + ", Tab="+activeInfo.tabId);
 });
 
 chrome.tabs.onCreated.addListener(function(tab) {
