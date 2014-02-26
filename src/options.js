@@ -61,16 +61,22 @@ function saveClose() {
 	}, 1000);
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('saveButton').addEventListener('click', saveMe);
-});
+if (document.getElementById('saveButton')) {
+	document.addEventListener('DOMContentLoaded', function () {
+		document.getElementById('saveButton').addEventListener('click', saveMe);
+	});
+}
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('closeButton').addEventListener('click', closeMe);
-});
+if (document.getElementById('closeButton')) {
+	document.addEventListener('DOMContentLoaded', function () {
+		document.getElementById('closeButton').addEventListener('click', closeMe);
+	});
+}
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('saveCloseButton').addEventListener('click', saveClose);
-});
+if (document.getElementById('saveCloseButton')) {
+	document.addEventListener('DOMContentLoaded', function () {
+		document.getElementById('saveCloseButton').addEventListener('click', saveClose);
+	});
+}
 
 window.addEventListener("load", init);
