@@ -16,13 +16,18 @@ function debugLog(string) {
 function printTimes() {
 	//console.log(tabTimes)
 	chrome.tabs.query({ }, function(tabs) {
-		//debugLog(tabs);
-	});
-	for (var i=0; i <tabTimes.length; i++) {
-		if (tabTimes[i]){
-			debugLog(tabTimes[i] + ": " + tabTimes[i].id + ";" + tabTimes[i].lastActive + ";" + tabTimes[i].totalActive);
+		debugLog(tabs);
+	
+		for (var i=0; i <tabs.length; i++) {
+			var id = tabs[i].id;
+			var ttl = id+"/"+tabs[i].title;
+			if (ttl.length>40){
+				ttl = ttl.substring(0,40)+"...";
+			}
+			debugLog("ID: " + id + ", last:" + tabTimes[id].lastActive + ", total:" + tabTimes[id].totalActive +" - \""+ttl+"\"");
 		}
-	}
+		debugLog(" ")
+	});
 }
 
 // initialize
@@ -60,7 +65,7 @@ function init() {
 
 // add an entry to the tab times table
 function createTimes(tabId) {
-	tabTimes[tabId] = {id:tabId, totalActive:0, lastActive: Date.now()};
+	tabTimes[tabId] = {totalActive:0, lastActive: Date.now()};
 }
 
 // update count on badge (shared across windows)
@@ -106,12 +111,13 @@ function checkTabAdded() {
 	
 	// check tabs of current window
 	chrome.tabs.query({ currentWindow: true }, function(tabs) {
-		//printTimes();
 		
 		//debugLog("num of tabs: " +tabs.length)
 		
 		// tab removal criterion
 		if (tabs.length - localStorage.maxTabs == 1) {
+			debugLog("Preparing to remove tab...")
+			printTimes();
 			
 			// debugLog(localStorage.discardCriterion);
 
@@ -119,7 +125,7 @@ function checkTabAdded() {
 			switch(localStorage.discardCriterion) {
 
 				case 'oldest': // oldest tab
-					for (var i=1; i <tabs.length; i++) {
+					for (var i=1; i<tabs.length; i++) {
 						// find tab with lowest ID
 						if (tabs[i].id < tabId) {
 							tabId = tabs[i].id;
@@ -128,7 +134,7 @@ function checkTabAdded() {
 					break;
 				
 				case 'LRU': // tab with lowest lastActive (except new one)
-					for (var i=1; i <tabs.length - 1; i++) {
+					for (var i=1; i<tabs.length-1; i++) {
 						if (tabTimes[tabs[i].id].lastActive < tabTimes[tabId].lastActive) {
 							tabId = tabs[i].id;
 						}
@@ -136,7 +142,7 @@ function checkTabAdded() {
 					break;
 
 				case 'LFU': // tab with lowest totalActive (except new one)
-					for (var i=1; i <tabs.length - 1; i++) {
+					for (var i=1; i<tabs.length-1; i++) {
 						if (tabTimes[tabs[i].id].totalActive < tabTimes[tabId].totalActive) {
 							tabId = tabs[i].id;
 						}
@@ -151,7 +157,7 @@ function checkTabAdded() {
 			
 			//debugLog('Chosen: '+tabId)
 			chrome.tabs.get(tabId, function(tab){
-				debugLog('Removing tab '+tab.id+': '+tab.title+', active time '+(Math.floor(tabTimes[tab.id].totalActive/10)/100)+'s, last active: '+tabTimes[tab.id].lastActive);
+				debugLog('Removing tab '+tab.id+': "'+tab.title+'", active time '+(Math.floor(tabTimes[tab.id].totalActive/10)/100)+'s, last active: '+tabTimes[tab.id].lastActive);
 				removeTimes(tab.id);
 				printTimes();
 			});
