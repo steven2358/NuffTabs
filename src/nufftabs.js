@@ -4,7 +4,7 @@ var maxTabs; // maximum number of tabs allowed per window
 var startActive; // time at which active tab started being active
 var tabTimes = new Array(); // array with activity times (tab times table)
 
-var debug = false; // debug boolean
+var debug = true; // debug boolean
 
 function debugLog(string) {
 	if (debug) {
@@ -107,7 +107,7 @@ function updateTimes() {
 }
 
 // actions to perform upon adding a tab
-function checkTabAdded() {
+function checkTabAdded(newTabId) {
 	
 	// check tabs of current window
 	chrome.tabs.query({ currentWindow: true }, function(tabs) {
@@ -116,41 +116,51 @@ function checkTabAdded() {
 		
 		// tab removal criterion
 		if (tabs.length - localStorage.maxTabs == 1) {
+			debugLog("New tab: "+newTabId)
 			debugLog("Preparing to remove tab...")
 			printTimes();
 			
-			// debugLog(localStorage.discardCriterion);
-
-			var tabId = tabs[0].id;
+			var tabId = tabs[0].id; // must be overwritten below
+			if (tabId == newTabId) {
+				tabs[i].id = tabs[1].id;
+			}
 			switch(localStorage.discardCriterion) {
 
 				case 'oldest': // oldest tab
-					for (var i=1; i<tabs.length; i++) {
-						// find tab with lowest ID
-						if (tabs[i].id < tabId) {
-							tabId = tabs[i].id;
+					for (var i=0; i<tabs.length; i++) {
+						if (tabs[i].id != newTabId) { // exclude new tab
+							// find tab with lowest ID
+							if (tabs[i].id < tabId) {
+								tabId = tabs[i].id;
+							}
 						}
 					};
 					break;
 				
-				case 'LRU': // tab with lowest lastActive (except new one)
-					for (var i=1; i<tabs.length-1; i++) {
-						if (tabTimes[tabs[i].id].lastActive < tabTimes[tabId].lastActive) {
-							tabId = tabs[i].id;
+				case 'LRU': // tab with lowest lastActive
+					for (var i=0; i<tabs.length; i++) {
+						if (tabs[i].id != newTabId) { // exclude new tab
+							if (tabTimes[tabs[i].id].lastActive < tabTimes[tabId].lastActive) {
+								tabId = tabs[i].id;
+							}
 						}
-					};
+					}
 					break;
 
-				case 'LFU': // tab with lowest totalActive (except new one)
-					for (var i=1; i<tabs.length-1; i++) {
-						if (tabTimes[tabs[i].id].totalActive < tabTimes[tabId].totalActive) {
-							tabId = tabs[i].id;
+				case 'LFU': // tab with lowest totalActive
+					for (var i=0; i<tabs.length; i++) {
+						if (tabs[i].id != newTabId) { // exclude new tab
+							if (tabTimes[tabs[i].id].totalActive < tabTimes[tabId].totalActive) {
+								tabId = tabs[i].id;
+							}
 						}
-					};
+					}
 					break;
 				
-				case 'random': // random tab (except new one)
-					tabId = tabs[Math.floor(Math.random() * (tabs.length-1))].id;
+				case 'random': // random tab
+					while (tabId == newTabId) { // exclude new tab
+						tabId = tabs[Math.floor(Math.random() * (tabs.length-1))].id;
+					}
 					break;
 				default:
 			}
@@ -186,7 +196,7 @@ chrome.tabs.onCreated.addListener(function(tab) {
 	debugLog("tab " + tab.id + " created");
 	createTimes(tab.id);
 	updateTimes();
-	checkTabAdded(); // contains updateBadge
+	checkTabAdded(tab.id); // contains updateBadge
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
@@ -203,7 +213,7 @@ chrome.tabs.onDetached.addListener(function(tab) {
 
 chrome.tabs.onAttached.addListener(function(tab) {
 	debugLog("tab " + tab.id + " attached");
-	checkTabAdded(); // contains updateBadge
+	checkTabAdded(tab.id); // contains updateBadge
 });
 
 chrome.windows.onFocusChanged.addListener(function(windowId) {
