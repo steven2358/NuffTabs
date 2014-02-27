@@ -8,7 +8,9 @@
   "permissions": ["tabs"],
   "icons": {
     "19": "i/nufftabs19.png",
+    "32": "i/nufftabs32.png",
     "48": "i/nufftabs48.png",
+    "64": "i/nufftabs64.png",
     "128": "i/nufftabs128.png"
   },
   "browser_action": {
