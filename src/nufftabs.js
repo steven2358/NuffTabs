@@ -139,6 +139,10 @@ function checkTabAdded(newTabId) {
 					};
 					break;
 				
+				case 'newest': // newest tab
+					tabId = newTabId;
+					break;
+				
 				case 'LRU': // tab with lowest lastActive
 					for (var i=0; i<tabs.length; i++) {
 						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
