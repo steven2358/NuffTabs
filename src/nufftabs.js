@@ -117,14 +117,14 @@ function checkTabAdded(newTabId) {
 		//debugLog("num of tabs: " +tabs.length)
 		
 		// tab removal criterion
-		if (tabs.length - localStorage.maxTabs == 1) {
+		while (tabs.length > localStorage.maxTabs) {
 			debugLog("New tab: "+newTabId)
 			debugLog("Preparing to remove tab...")
 			printTimes();
 			
-			var tabId = tabs[0].id; // must be overwritten below
-			if (tabId == newTabId) {
-				tabs[i].id = tabs[1].id;
+			var tabInd = 0; // must be overwritten below
+			if (tabs[tabInd].id == newTabId) {
+				tabInd = 1;
 			}
 			switch(localStorage.discardCriterion) {
 
@@ -132,22 +132,29 @@ function checkTabAdded(newTabId) {
 					for (var i=0; i<tabs.length; i++) {
 						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
 							// find tab with lowest ID
-							if (tabs[i].id < tabId) {
-								tabId = tabs[i].id;
+							if (tabs[i].id < tabs[tabInd].id) {
+								//tabId = tabs[i].id;
+								tabInd = i;
 							}
 						}
-					};
+					}
 					break;
 				
 				case 'newest': // newest tab
-					tabId = newTabId;
+					for (var i=0; i<tabs.length; i++) {
+						// find tab with highest ID
+						if (tabs[i].id > tabs[tabInd].id) {
+							//tabId = tabs[i].id;
+							tabInd = i;
+						}
+					}
 					break;
 				
 				case 'LRU': // tab with lowest lastActive
 					for (var i=0; i<tabs.length; i++) {
 						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
-							if (tabTimes[tabs[i].id].lastActive < tabTimes[tabId].lastActive) {
-								tabId = tabs[i].id;
+							if (tabTimes[tabs[i].id].lastActive < tabTimes[tabs[tabInd].id].lastActive) {
+								tabInd = i;
 							}
 						}
 					}
@@ -156,8 +163,8 @@ function checkTabAdded(newTabId) {
 				case 'LFU': // tab with lowest totalActive
 					for (var i=0; i<tabs.length; i++) {
 						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
-							if (tabTimes[tabs[i].id].totalActive < tabTimes[tabId].totalActive) {
-								tabId = tabs[i].id;
+							if (tabTimes[tabs[i].id].totalActive < tabTimes[tabs[tabInd].id].totalActive) {
+								tabInd = i;
 							}
 						}
 					}
@@ -166,11 +173,13 @@ function checkTabAdded(newTabId) {
 				case 'random': // random tab
 					tabId = newTabId;
 					while (tabId == newTabId || tabId == currentTabId) { // exclude new tab
-						tabId = tabs[Math.floor(Math.random() * (tabs.length-1))].id;
+						tabInd = Math.floor(Math.random() * (tabs.length-1));
 					}
 					break;
 				default:
 			}
+			
+			var tabId = tabs[tabInd].id;
 			
 			//debugLog('Chosen: '+tabId)
 			chrome.tabs.get(tabId, function(tab){
@@ -181,6 +190,9 @@ function checkTabAdded(newTabId) {
 
 			// remove tab
 			chrome.tabs.remove(tabId, function() {});
+			debugLog(tabs)
+			tabs.splice(tabInd,1); // remove from list
+			debugLog('aaa'+tabs.length)
 			//removeTimes(tabId);
 		}
 		updateBadge();
