@@ -16,7 +16,7 @@ function debugLog(string) {
 function printTimes() {
 	//console.log(tabTimes)
 	chrome.tabs.query({ }, function(tabs) {
-		debugLog(tabs);
+		//debugLog(tabs);
 	
 		for (var i=0; i <tabs.length; i++) {
 			var id = tabs[i].id;
