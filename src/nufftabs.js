@@ -4,7 +4,7 @@ var maxTabs; // maximum number of tabs allowed per window
 var startActive; // time at which active tab started being active
 var tabTimes = new Array(); // array with activity times (tab times table)
 
-var debug = true; // debug boolean
+var debug = false; // debug boolean
 
 function debugLog(string) {
 	if (debug) {
@@ -20,7 +20,7 @@ function printTimes() {
 	
 		for (var i=0; i <tabs.length; i++) {
 			var id = tabs[i].id;
-			var ttl = id+"/"+tabs[i].title;
+			var ttl = tabs[i].title;
 			if (ttl.length>40){
 				ttl = ttl.substring(0,40)+"...";
 			}
