@@ -130,7 +130,7 @@ function checkTabAdded(newTabId) {
 
 				case 'oldest': // oldest tab
 					for (var i=0; i<tabs.length; i++) {
-						if (tabs[i].id != newTabId) { // exclude new tab
+						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
 							// find tab with lowest ID
 							if (tabs[i].id < tabId) {
 								tabId = tabs[i].id;
@@ -141,7 +141,7 @@ function checkTabAdded(newTabId) {
 				
 				case 'LRU': // tab with lowest lastActive
 					for (var i=0; i<tabs.length; i++) {
-						if (tabs[i].id != newTabId) { // exclude new tab
+						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
 							if (tabTimes[tabs[i].id].lastActive < tabTimes[tabId].lastActive) {
 								tabId = tabs[i].id;
 							}
@@ -151,7 +151,7 @@ function checkTabAdded(newTabId) {
 
 				case 'LFU': // tab with lowest totalActive
 					for (var i=0; i<tabs.length; i++) {
-						if (tabs[i].id != newTabId) { // exclude new tab
+						if (tabs[i].id != newTabId && tabs[i].id != currentTabId) { // exclude new and current
 							if (tabTimes[tabs[i].id].totalActive < tabTimes[tabId].totalActive) {
 								tabId = tabs[i].id;
 							}
@@ -160,7 +160,8 @@ function checkTabAdded(newTabId) {
 					break;
 				
 				case 'random': // random tab
-					while (tabId == newTabId) { // exclude new tab
+					tabId = newTabId;
+					while (tabId == newTabId || tabId == currentTabId) { // exclude new tab
 						tabId = tabs[Math.floor(Math.random() * (tabs.length-1))].id;
 					}
 					break;
@@ -219,7 +220,7 @@ chrome.tabs.onAttached.addListener(function(tab) {
 });
 
 chrome.windows.onFocusChanged.addListener(function(windowId) {
-	debugLog("window focus changed");
+	debugLog("window focus changed: "+windowId);
 	updateTimes();
 	updateBadge();
 });
