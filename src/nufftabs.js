@@ -24,7 +24,9 @@ function printTimes() {
 			if (ttl.length>40){
 				ttl = ttl.substring(0,40)+"...";
 			}
-			debugLog("ID: " + id + ", last:" + tabTimes[id].lastActive + ", total:" + tabTimes[id].totalActive +" - \""+ttl+"\"");
+			if (tabTimes[id]) {
+				debugLog("ID: " + id + ", last:" + tabTimes[id].lastActive + ", total:" + tabTimes[id].totalActive +" - \""+ttl+"\"");
+			}
 		}
 		debugLog(" ")
 	});
