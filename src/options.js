@@ -1,6 +1,8 @@
+// fill in selected options
 function init() {
 	var maxTabs = localStorage.maxTabs;
 	var discardCriterion = localStorage.discardCriterion;
+	var ignorePinned = localStorage.ignorePinned;
 	var showCount = localStorage.showCount;
 	
 	if (!maxTabs && !discardCriterion && !showCount) {
