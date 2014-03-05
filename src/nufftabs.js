@@ -42,6 +42,9 @@ function init() {
 	if (localStorage.maxTabs == undefined) {
 		localStorage.maxTabs = 20; // default
 	}
+	if (localStorage.ignorePinned == undefined) {
+		localStorage.ignorePinned = false;
+	}
 	if (localStorage.showCount == undefined) {
 		localStorage.showCount = false;
 	}
@@ -113,8 +116,14 @@ function checkTabAdded(newTabId) {
 	
 	// check tabs of current window
 	chrome.tabs.query({ currentWindow: true }, function(tabs) {
+
+		if (localStorage.ignorePinned == '1') {
+			tabs = tabs.filter(function (tab) {
+				return !tab.pinned;
+			});
+		}
 		
-		//debugLog("num of tabs: " +tabs.length)
+		// debugLog("num of tabs: " +tabs.length)
 		
 		// tab removal criterion
 		while (tabs.length > localStorage.maxTabs) {

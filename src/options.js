@@ -25,6 +25,15 @@ function init() {
 		}
 	}
 
+	var selector = document.getElementById("ignorePinned");
+	for (var i = 0; i < selector.children.length; i++) {
+		var child = selector.children[i];
+		if (child.value == ignorePinned) {
+			child.selected = "true";
+		break;
+		}
+	}
+
 	var selector = document.getElementById("showCount");
 	for (var i = 0; i < selector.children.length; i++) {
 		var child = selector.children[i];
@@ -38,6 +47,7 @@ function init() {
 function saveMe() {
 	localStorage.maxTabs = document.getElementById("maxTabs").value;
 	localStorage.discardCriterion = document.getElementById("discardCriterion").value;
+	localStorage.ignorePinned = document.getElementById("ignorePinned").value;
 	localStorage.showCount = document.getElementById("showCount").value;
 
 	document.getElementById('messages').innerHTML = "Options saved.";
@@ -53,6 +63,7 @@ function closeMe() {
 function saveClose() {
 	localStorage.maxTabs = document.getElementById("maxTabs").value;
 	localStorage.discardCriterion = document.getElementById("discardCriterion").value;
+	localStorage.ignorePinned = document.getElementById("ignorePinned").value;
 	localStorage.showCount = document.getElementById("showCount").value;
 
 	document.getElementById('messages').innerHTML = "Options saved.";
