@@ -73,11 +73,17 @@ function createTimes(tabId) {
 	tabTimes[tabId] = {totalActive:0, lastActive: Date.now()};
 }
 
-// update count on badge (shared across windows)
+// update count on badge (only valid for active window)
 function updateBadge() {
 	if (localStorage.showCount == '1'){
 		chrome.browserAction.setBadgeBackgroundColor({ color: [0, 0, 0, 92] });
+		
 		chrome.tabs.query({ lastFocusedWindow: true }, function(tabs) {
+			if (localStorage.ignorePinned == '1') {
+				tabs = tabs.filter(function (tab) {
+					return !tab.pinned;
+				});
+			}
 			chrome.browserAction.setBadgeText({ text: tabs.length.toString()});
 		});
 	}
@@ -199,9 +205,7 @@ function checkTabAdded(newTabId) {
 
 			// remove tab
 			chrome.tabs.remove(tabId, function() {});
-			debugLog(tabs)
 			tabs.splice(tabInd,1); // remove from list
-			debugLog('aaa'+tabs.length)
 			//removeTimes(tabId);
 		}
 		updateBadge();
