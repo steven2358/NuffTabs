@@ -92,9 +92,13 @@ function updateBadge() {
 // update active times and current ID
 function updateTimesAndId() {
   // update total active time for previous tab
+  // debugLog('Previous tab: '+currentTabId);
+  if (currentTabId > -1) {
   chrome.tabs.get(currentTabId, function(tab){
     if (tab){
       
+        //console.log('Previous tab: ' + currentTabId);
+        if (currentTabId > -1) {
       // set last active time
       tabTimes[currentTabId].lastActive = Date.now();
       
@@ -103,9 +107,16 @@ function updateTimesAndId() {
       debugLog('Adding '+(Math.floor(duration/10)/100)+'s to tab '+currentTabId);
       tabTimes[currentTabId].totalActive = tabTimes[currentTabId].totalActive + duration;
     }
+      }
     startActive = Date.now();
     printTimes();
   });
+  }
+  else {
+    startActive = Date.now();
+    printTimes();
+  }
+  
   updateCurrentTabId();
 }
   
