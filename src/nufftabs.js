@@ -189,6 +189,7 @@ function checkTabAdded(newTabId) {
 					tabId = newTabId;
 					while (tabId == newTabId || tabId == currentTabId) { // exclude new tab
 						tabInd = Math.floor(Math.random() * (tabs.length-1));
+            tabId = tabs[tabInd].id;
 					}
 					break;
 				default:
