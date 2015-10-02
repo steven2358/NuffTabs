@@ -3,7 +3,7 @@
   "manifest_version": 2,
   "name": "'Nuff Tabs",
   "author": "Steven Van Vaerenbergh",
-  "version": "0.4",
+  "version": "0.5",
   "description": "Limit the number of open tabs. Automatically close previous tabs.",
   "permissions": ["tabs"],
   "icons": {
