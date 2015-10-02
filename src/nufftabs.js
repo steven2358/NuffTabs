@@ -43,10 +43,10 @@ function init() {
     localStorage.maxTabs = 10; // default
   }
   if (localStorage.ignorePinned == undefined) {
-    localStorage.ignorePinned = true;
+    localStorage.ignorePinned = 1;
   }
   if (localStorage.showCount == undefined) {
-    localStorage.showCount = true;
+    localStorage.showCount = 1;
   }
   
   updateCurrentTabId();
