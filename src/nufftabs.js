@@ -40,13 +40,13 @@ function init() {
     localStorage.discardCriterion = 'oldest';
   }
   if (localStorage.maxTabs == undefined) {
-    localStorage.maxTabs = 20; // default
+    localStorage.maxTabs = 10; // default
   }
   if (localStorage.ignorePinned == undefined) {
-    localStorage.ignorePinned = false;
+    localStorage.ignorePinned = true;
   }
   if (localStorage.showCount == undefined) {
-    localStorage.showCount = false;
+    localStorage.showCount = true;
   }
   
   // set the id of the current tab
