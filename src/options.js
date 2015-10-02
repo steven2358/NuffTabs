@@ -5,7 +5,7 @@ function init() {
 	var ignorePinned = localStorage.ignorePinned;
 	var showCount = localStorage.showCount;
 	
-	if (!maxTabs && !discardCriterion && !showCount) {
+	if (!maxTabs && !discardCriterion && !ignorePinned && !showCount) {
 		return;
 	}
 
