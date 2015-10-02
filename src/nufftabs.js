@@ -49,10 +49,7 @@ function init() {
     localStorage.showCount = true;
   }
   
-  // set the id of the current tab
-  chrome.tabs.query({ lastFocusedWindow: true, active: true }, function (tabs) {
-    currentTabId = tabs[0].id;
-  });
+  updateCurrentTabId();
   
   // set the usage and last active time for each tab if necessary
   chrome.tabs.query({ }, function(tabs){
@@ -109,11 +106,20 @@ function updateTimes() {
     startActive = Date.now();
     printTimes();
   });
+  updateCurrentTabId();
+}
   
   // set the ID of the current tab
+function updateCurrentTabId() {
   chrome.tabs.query({ lastFocusedWindow: true, active: true }, function (tabs) {
+    if (typeof tabs[0] === 'undefined') {
+      currentTabId = -1;
+    }
+    else {
     currentTabId = tabs[0].id;
     //debugLog("Current: "+currentTabId);
+    }
+    debugLog('currentTabId: '+currentTabId);
   });
 }
 
