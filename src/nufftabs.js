@@ -90,7 +90,7 @@ function updateBadge() {
 }
 
 // update active times and current ID
-function updateTimes() {
+function updateTimesAndId() {
   // update total active time for previous tab
   chrome.tabs.get(currentTabId, function(tab){
     if (tab){
@@ -226,7 +226,7 @@ function removeTimes(tabId) {
 
 chrome.tabs.onActivated.addListener(function(activeInfo){
   debugLog("tab " + activeInfo.tabId + " activated");
-  updateTimes();
+  updateTimesAndId();
   updateBadge();
   // debugLog("Window=" + activeInfo.windowId + ", Tab="+activeInfo.tabId);
 });
@@ -234,14 +234,14 @@ chrome.tabs.onActivated.addListener(function(activeInfo){
 chrome.tabs.onCreated.addListener(function(tab) {
   debugLog("tab " + tab.id + " created");
   createTimes(tab.id);
-  updateTimes();
+  updateTimesAndId();
   checkTabAdded(tab.id); // contains updateBadge
 });
 
 chrome.tabs.onRemoved.addListener(function(tabId) {
   debugLog("tab " + tabId + " removed");
   removeTimes(tabId);
-  updateTimes();
+  updateTimesAndId();
   updateBadge();
 });
 
@@ -257,7 +257,7 @@ chrome.tabs.onAttached.addListener(function(tab) {
 
 chrome.windows.onFocusChanged.addListener(function(windowId) {
   debugLog("window focus changed: "+windowId);
-  updateTimes();
+  updateTimesAndId();
   updateBadge();
 });
 
