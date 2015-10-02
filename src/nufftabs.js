@@ -94,23 +94,23 @@ function updateTimesAndId() {
   // update total active time for previous tab
   // debugLog('Previous tab: '+currentTabId);
   if (currentTabId > -1) {
-  chrome.tabs.get(currentTabId, function(tab){
-    if (tab){
-      
+    chrome.tabs.get(currentTabId, function(tab){
+      if (tab){
+        
         //console.log('Previous tab: ' + currentTabId);
         if (currentTabId > -1) {
-      // set last active time
-      tabTimes[currentTabId].lastActive = Date.now();
-      
-      // update total active time
-      var duration = Date.now() - startActive;
-      debugLog('Adding '+(Math.floor(duration/10)/100)+'s to tab '+currentTabId);
-      tabTimes[currentTabId].totalActive = tabTimes[currentTabId].totalActive + duration;
-    }
+          // set last active time
+          tabTimes[currentTabId].lastActive = Date.now();
+          
+          // update total active time
+          var duration = Date.now() - startActive;
+          debugLog('Adding '+(Math.floor(duration/10)/100)+'s to tab '+currentTabId);
+          tabTimes[currentTabId].totalActive = tabTimes[currentTabId].totalActive + duration;
+        }
       }
-    startActive = Date.now();
-    printTimes();
-  });
+      startActive = Date.now();
+      printTimes();
+    });
   }
   else {
     startActive = Date.now();
@@ -119,16 +119,16 @@ function updateTimesAndId() {
   
   updateCurrentTabId();
 }
-  
-  // set the ID of the current tab
+
+// set the ID of the current tab
 function updateCurrentTabId() {
   chrome.tabs.query({ lastFocusedWindow: true, active: true }, function (tabs) {
     if (typeof tabs[0] === 'undefined') {
       currentTabId = -1;
     }
     else {
-    currentTabId = tabs[0].id;
-    //debugLog("Current: "+currentTabId);
+      currentTabId = tabs[0].id;
+      //debugLog("Current: "+currentTabId);
     }
     debugLog('currentTabId: '+currentTabId);
   });
