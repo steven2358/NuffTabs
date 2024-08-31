@@ -1,26 +1,34 @@
 {
-  "update_url": "https://clients2.google.com/service/update2/crx",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "'Nuff Tabs",
-  "author": "Steven Van Vaerenbergh",
-  "version": "0.5",
+  "version": "2.0.0",
   "description": "Limit the number of open tabs. Automatically close previous tabs.",
-  "permissions": ["tabs"],
-  "icons": {
-    "19": "i/nufftabs19.png",
-    "32": "i/nufftabs32.png",
-    "48": "i/nufftabs48.png",
-    "64": "i/nufftabs64.png",
-    "128": "i/nufftabs128.png"
-  },
-  "browser_action": {
-    "default_name": "'Nuff Tabs",
-    "default_icon": "i/nufftabs19.png",
-    "default_popup": "popup.html"
-  },
+  "author": "Steven Van Vaerenbergh",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
   "background": {
-    "persistent": false,
-    "scripts": ["nufftabs.js"]
+    "service_worker": "background.js"
   },
-  "options_page": "options.html"
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "i/icon16.png",
+      "48": "i/icon48.png",
+      "128": "i/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "i/icon16.png",
+    "48": "i/icon48.png",
+    "128": "i/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["whatsnew.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

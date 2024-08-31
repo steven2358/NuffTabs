@@ -1,89 +1,36 @@
-// fill in selected options
-function init() {
-	var maxTabs = localStorage.maxTabs;
-	var discardCriterion = localStorage.discardCriterion;
-	var ignorePinned = localStorage.ignorePinned;
-	var showCount = localStorage.showCount;
-	
-	if (!maxTabs && !discardCriterion && !ignorePinned && !showCount) {
-		return;
-	}
+document.addEventListener('DOMContentLoaded', () => {
+  const maxTabsSelect = document.getElementById('maxTabs');
+  const discardCriterionSelect = document.getElementById('discardCriterion');
+  const ignorePinnedSelect = document.getElementById('ignorePinned');
+  const showCountSelect = document.getElementById('showCount');
+  const saveButton = document.getElementById('save');
+  const statusDiv = document.getElementById('status');
 
-	var selector = document.getElementById("maxTabs");
-	for (var i = 0; i < selector.children.length; i++) {
-		var child = selector.children[i];
-		if (child.value == maxTabs) {
-			child.selected = "true";
-		break;
-		}
-	}
+  // Load saved options
+  chrome.storage.local.get(['config'], (result) => {
+    if (result.config) {
+      maxTabsSelect.value = result.config.maxTabs;
+      discardCriterionSelect.value = result.config.discardCriterion;
+      ignorePinnedSelect.value = result.config.ignorePinned;
+      showCountSelect.value = result.config.showCount;
+    }
+  });
 
-	var selector = document.getElementById("discardCriterion");
-	for (var i = 0; i < selector.children.length; i++) {
-		var child = selector.children[i];
-		if (child.value == discardCriterion) {
-			child.selected = "true";
-		break;
-		}
-	}
+  // Save options
+  saveButton.addEventListener('click', () => {
+    const config = {
+      maxTabs: parseInt(maxTabsSelect.value),
+      discardCriterion: discardCriterionSelect.value,
+      ignorePinned: ignorePinnedSelect.value === 'true',
+      showCount: showCountSelect.value === 'true'
+    };
 
-	var selector = document.getElementById("ignorePinned");
-	for (var i = 0; i < selector.children.length; i++) {
-		var child = selector.children[i];
-		if (child.value == ignorePinned) {
-			child.selected = "true";
-		break;
-		}
-	}
-
-	var selector = document.getElementById("showCount");
-	for (var i = 0; i < selector.children.length; i++) {
-		var child = selector.children[i];
-		if (child.value == showCount) {
-			child.selected = "true";
-		break;
-		}
-	}
-}
-
-function saveMe() {
-	localStorage.maxTabs = document.getElementById("maxTabs").value;
-	localStorage.discardCriterion = document.getElementById("discardCriterion").value;
-	localStorage.ignorePinned = document.getElementById("ignorePinned").value;
-	localStorage.showCount = document.getElementById("showCount").value;
-
-	document.getElementById('messages').innerHTML = "Options saved.";
-	setTimeout(function() {
-		document.getElementById('messages').innerHTML = "";
-	}, 1500);
-}
-
-function closeMe() {
-	window.close();
-}
-
-function saveClose() {
-	localStorage.maxTabs = document.getElementById("maxTabs").value;
-	localStorage.discardCriterion = document.getElementById("discardCriterion").value;
-	localStorage.ignorePinned = document.getElementById("ignorePinned").value;
-	localStorage.showCount = document.getElementById("showCount").value;
-
-	document.getElementById('messages').innerHTML = "Options saved.";
-	setTimeout(function() {
-		window.close();
-	}, 1000);
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-	if (document.getElementById('saveButton')) {
-		document.getElementById('saveButton').addEventListener('click', saveMe);
-	}
-	if (document.getElementById('closeButton')) {
-		document.getElementById('closeButton').addEventListener('click', closeMe);
-	}
-	if (document.getElementById('saveCloseButton')) {
-		document.getElementById('saveCloseButton').addEventListener('click', saveClose);
-	}
+    chrome.storage.local.set({ config }, () => {
+      chrome.runtime.sendMessage({ action: 'updateConfig', config });
+      statusDiv.textContent = 'Options saved!';
+      setTimeout(() => {
+        statusDiv.textContent = '';
+      }, 2000);
+    });
+  });
 });
-
-window.addEventListener("load", init);
