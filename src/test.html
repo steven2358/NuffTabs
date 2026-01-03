@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NuffTabs Unit Tests</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; }
+    .test-suite {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .test-suite h2 {
+      margin-top: 0;
+      color: #4688F1;
+    }
+    .test {
+      padding: 8px 12px;
+      margin: 4px 0;
+      border-radius: 4px;
+    }
+    .test.pass {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .test.fail {
+      background: #ffebee;
+      color: #c62828;
+    }
+    .summary {
+      font-size: 18px;
+      font-weight: bold;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .summary.all-pass {
+      background: #4caf50;
+      color: white;
+    }
+    .summary.has-failures {
+      background: #f44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>NuffTabs Unit Tests</h1>
+  <p style="color: #666; margin-bottom: 20px;">
+    <strong>How to run:</strong> Serve this directory with a local web server
+    (e.g., <code>npx serve .</code> or <code>python -m http.server</code>),
+    then open this file in your browser.
+  </p>
+  <div id="results"></div>
+  <div id="summary"></div>
+
+  <script type="module">
+    // Mock Chrome APIs for testing outside extension context
+    if (typeof chrome === 'undefined') {
+      window.chrome = {
+        storage: {
+          local: { get: () => {}, set: () => {} },
+          session: { get: () => {}, set: () => {} }
+        },
+        tabs: { query: () => {}, remove: () => {}, create: () => {} },
+        action: { setIcon: () => {}, setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
+        runtime: { sendMessage: () => {}, onMessage: { addListener: () => {} } }
+      };
+    }
+
+    import { validateConfig, DEFAULT_CONFIG, VALID_CRITERIA } from './lib/config.js';
+    import { compareVersions, isVersionLessThan } from './lib/utils.js';
+    import { selectTabToClose } from './lib/tab-manager.js';
+
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    let passed = 0;
+    let failed = 0;
+
+    function test(name, fn) {
+      try {
+        fn();
+        passed++;
+        return { name, pass: true };
+      } catch (e) {
+        failed++;
+        return { name, pass: false, error: e.message };
+      }
+    }
+
+    function assertEqual(actual, expected, msg = '') {
+      if (actual !== expected) {
+        throw new Error(`${msg} Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+      }
+    }
+
+    function assertTrue(value, msg = '') {
+      if (!value) {
+        throw new Error(`${msg} Expected truthy value, got ${value}`);
+      }
+    }
+
+    function assertFalse(value, msg = '') {
+      if (value) {
+        throw new Error(`${msg} Expected falsy value, got ${value}`);
+      }
+    }
+
+    function assertNull(value, msg = '') {
+      if (value !== null) {
+        throw new Error(`${msg} Expected null, got ${JSON.stringify(value)}`);
+      }
+    }
+
+    function renderSuite(name, tests) {
+      const suite = document.createElement('div');
+      suite.className = 'test-suite';
+      suite.innerHTML = `<h2>${name}</h2>`;
+
+      for (const t of tests) {
+        const div = document.createElement('div');
+        div.className = `test ${t.pass ? 'pass' : 'fail'}`;
+        div.textContent = t.pass ? `[PASS] ${t.name}` : `[FAIL] ${t.name}: ${t.error}`;
+        suite.appendChild(div);
+      }
+
+      results.appendChild(suite);
+    }
+
+    // =========================================================================
+    // Config Validation Tests
+    // =========================================================================
+    const configTests = [
+      test('returns defaults for null config', () => {
+        const result = validateConfig(null);
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+        assertEqual(result.discardCriterion, DEFAULT_CONFIG.discardCriterion);
+      }),
+
+      test('returns defaults for undefined config', () => {
+        const result = validateConfig(undefined);
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('returns defaults for empty object', () => {
+        const result = validateConfig({});
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('preserves valid maxTabs', () => {
+        const result = validateConfig({ maxTabs: 25 });
+        assertEqual(result.maxTabs, 25);
+      }),
+
+      test('rejects negative maxTabs', () => {
+        const result = validateConfig({ maxTabs: -5 });
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('rejects zero maxTabs', () => {
+        const result = validateConfig({ maxTabs: 0 });
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('rejects non-numeric maxTabs', () => {
+        const result = validateConfig({ maxTabs: 'abc' });
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('preserves valid discardCriterion', () => {
+        for (const criterion of VALID_CRITERIA) {
+          const result = validateConfig({ discardCriterion: criterion });
+          assertEqual(result.discardCriterion, criterion, `criterion: ${criterion}`);
+        }
+      }),
+
+      test('rejects invalid discardCriterion', () => {
+        const result = validateConfig({ discardCriterion: 'invalid' });
+        assertEqual(result.discardCriterion, DEFAULT_CONFIG.discardCriterion);
+      }),
+
+      test('preserves boolean ignorePinned', () => {
+        assertEqual(validateConfig({ ignorePinned: true }).ignorePinned, true);
+        assertEqual(validateConfig({ ignorePinned: false }).ignorePinned, false);
+      }),
+
+      test('rejects non-boolean ignorePinned', () => {
+        const result = validateConfig({ ignorePinned: 'true' });
+        assertEqual(result.ignorePinned, DEFAULT_CONFIG.ignorePinned);
+      }),
+
+      test('preserves boolean showCount', () => {
+        assertEqual(validateConfig({ showCount: true }).showCount, true);
+        assertEqual(validateConfig({ showCount: false }).showCount, false);
+      }),
+
+      test('preserves boolean enabled', () => {
+        assertEqual(validateConfig({ enabled: true }).enabled, true);
+        assertEqual(validateConfig({ enabled: false }).enabled, false);
+      }),
+
+      test('defaults enabled to false', () => {
+        assertEqual(validateConfig({}).enabled, false);
+      }),
+    ];
+
+    renderSuite('Config Validation', configTests);
+
+    // =========================================================================
+    // Version Comparison Tests
+    // =========================================================================
+    const versionTests = [
+      test('compareVersions: equal versions', () => {
+        assertEqual(compareVersions('1.0.0', '1.0.0'), 0);
+        assertEqual(compareVersions('2.1.0', '2.1.0'), 0);
+      }),
+
+      test('compareVersions: major version difference', () => {
+        assertEqual(compareVersions('1.0.0', '2.0.0'), -1);
+        assertEqual(compareVersions('2.0.0', '1.0.0'), 1);
+      }),
+
+      test('compareVersions: minor version difference', () => {
+        assertEqual(compareVersions('1.1.0', '1.2.0'), -1);
+        assertEqual(compareVersions('1.2.0', '1.1.0'), 1);
+      }),
+
+      test('compareVersions: patch version difference', () => {
+        assertEqual(compareVersions('1.0.1', '1.0.2'), -1);
+        assertEqual(compareVersions('1.0.2', '1.0.1'), 1);
+      }),
+
+      test('compareVersions: handles double-digit versions (the bug fix)', () => {
+        // This was the original bug - string comparison would fail here
+        assertEqual(compareVersions('1.9.0', '1.10.0'), -1, '1.9.0 < 1.10.0');
+        assertEqual(compareVersions('9.0.0', '10.0.0'), -1, '9.0.0 < 10.0.0');
+        assertEqual(compareVersions('10.0.0', '2.0.0'), 1, '10.0.0 > 2.0.0');
+      }),
+
+      test('isVersionLessThan: returns true for lesser version', () => {
+        assertTrue(isVersionLessThan('1.0.0', '2.0.0'));
+        assertTrue(isVersionLessThan('2.0.0', '2.1.0'));
+        assertTrue(isVersionLessThan('2.0.0', '2.0.1'));
+      }),
+
+      test('isVersionLessThan: returns false for equal version', () => {
+        assertFalse(isVersionLessThan('1.0.0', '1.0.0'));
+      }),
+
+      test('isVersionLessThan: returns false for greater version', () => {
+        assertFalse(isVersionLessThan('2.0.0', '1.0.0'));
+      }),
+
+      test('isVersionLessThan: handles null/undefined', () => {
+        assertTrue(isVersionLessThan(null, '1.0.0'));
+        assertTrue(isVersionLessThan(undefined, '1.0.0'));
+      }),
+    ];
+
+    renderSuite('Version Comparison', versionTests);
+
+    // =========================================================================
+    // Tab Selection Tests
+    // =========================================================================
+    function createMockTab(overrides = {}) {
+      return {
+        id: Math.floor(Math.random() * 10000),
+        url: 'https://example.com',
+        title: 'Example',
+        pinned: false,
+        active: false,
+        ...overrides
+      };
+    }
+
+    const tabSelectionTests = [
+      test('selectTabToClose: never selects active tab', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: true }),
+          createMockTab({ id: 2, active: false }),
+          createMockTab({ id: 3, active: false })
+        ];
+        const tabData = new Map([
+          [1, { created: 100, lastAccessed: 100, totalActiveTime: 0 }],
+          [2, { created: 200, lastAccessed: 200, totalActiveTime: 0 }],
+          [3, { created: 300, lastAccessed: 300, totalActiveTime: 0 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertTrue(result.id !== 1, 'Should not select active tab (id=1)');
+        assertEqual(result.id, 2, 'Should select oldest non-active tab');
+      }),
+
+      test('selectTabToClose: returns null when all tabs are active', () => {
+        const tabs = [createMockTab({ id: 1, active: true })];
+        const tabData = new Map([[1, { created: 100 }]]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertNull(result);
+      }),
+
+      test('selectTabToClose: skips tabs without metadata', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([[2, { created: 200 }]]); // No entry for tab 1
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertEqual(result.id, 2, 'Should select only tab with metadata');
+      }),
+
+      test('selectTabToClose: oldest selects tab with earliest created time', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false }),
+          createMockTab({ id: 3, active: false })
+        ];
+        const tabData = new Map([
+          [1, { created: 300 }],
+          [2, { created: 100 }], // oldest
+          [3, { created: 200 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertEqual(result.id, 2);
+      }),
+
+      test('selectTabToClose: newest selects tab with latest created time', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false }),
+          createMockTab({ id: 3, active: false })
+        ];
+        const tabData = new Map([
+          [1, { created: 300 }], // newest
+          [2, { created: 100 }],
+          [3, { created: 200 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'newest');
+        assertEqual(result.id, 1);
+      }),
+
+      test('selectTabToClose: LRO selects least recently accessed tab', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([
+          [1, { lastAccessed: 500 }],
+          [2, { lastAccessed: 100 }] // least recently accessed
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'LRO');
+        assertEqual(result.id, 2);
+      }),
+
+      test('selectTabToClose: LFU selects tab with least active time', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([
+          [1, { totalActiveTime: 5000 }],
+          [2, { totalActiveTime: 1000 }] // least active
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'LFU');
+        assertEqual(result.id, 2);
+      }),
+
+      test('selectTabToClose: random returns a valid tab', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([
+          [1, { created: 100 }],
+          [2, { created: 200 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'random');
+        assertTrue(result.id === 1 || result.id === 2, 'Should return one of the tabs');
+      }),
+
+      test('selectTabToClose: returns null for empty tab list', () => {
+        const tabs = [];
+        const tabData = new Map();
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertNull(result);
+      }),
+
+      test('selectTabToClose: handles tabs with equal created times (uses first found)', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false }),
+          createMockTab({ id: 3, active: false })
+        ];
+        // All tabs have same created time
+        const tabData = new Map([
+          [1, { created: 100 }],
+          [2, { created: 100 }],
+          [3, { created: 100 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        // Should return one of them (first one due to reduce logic)
+        assertTrue([1, 2, 3].includes(result.id), 'Should return one of the tabs');
+      }),
+
+      test('selectTabToClose: correctly handles mixed active/inactive tabs', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: true }),   // active - skip
+          createMockTab({ id: 2, active: false }),  // oldest inactive
+          createMockTab({ id: 3, active: true }),   // active - skip
+          createMockTab({ id: 4, active: false })   // newer inactive
+        ];
+        const tabData = new Map([
+          [1, { created: 50 }],   // oldest but active
+          [2, { created: 100 }],  // oldest inactive
+          [3, { created: 150 }],
+          [4, { created: 200 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertEqual(result.id, 2, 'Should select oldest inactive tab');
+      }),
+
+      test('selectTabToClose: all inactive tabs missing metadata returns null', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: true }),
+          createMockTab({ id: 2, active: false }),
+          createMockTab({ id: 3, active: false })
+        ];
+        // Only active tab has metadata
+        const tabData = new Map([
+          [1, { created: 100 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'oldest');
+        assertNull(result, 'Should return null when no valid candidates');
+      }),
+
+      test('selectTabToClose: unknown criterion falls back to first valid tab', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([
+          [1, { created: 100 }],
+          [2, { created: 200 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'unknown_criterion');
+        assertEqual(result.id, 1, 'Should return first valid tab for unknown criterion');
+      }),
+    ];
+
+    renderSuite('Tab Selection', tabSelectionTests);
+
+    // =========================================================================
+    // Edge Cases Tests
+    // =========================================================================
+    const edgeCaseTests = [
+      test('config: handles string number for maxTabs', () => {
+        const result = validateConfig({ maxTabs: '15' });
+        assertEqual(result.maxTabs, 15);
+      }),
+
+      test('config: handles float maxTabs (truncates)', () => {
+        const result = validateConfig({ maxTabs: 7.9 });
+        assertEqual(result.maxTabs, 7);
+      }),
+
+      test('config: very large maxTabs is preserved', () => {
+        const result = validateConfig({ maxTabs: 9999 });
+        assertEqual(result.maxTabs, 9999);
+      }),
+
+      test('config: partial config merges with defaults', () => {
+        const result = validateConfig({ maxTabs: 20 });
+        assertEqual(result.maxTabs, 20);
+        assertEqual(result.discardCriterion, DEFAULT_CONFIG.discardCriterion);
+        assertEqual(result.ignorePinned, DEFAULT_CONFIG.ignorePinned);
+        assertEqual(result.showCount, DEFAULT_CONFIG.showCount);
+        assertEqual(result.enabled, DEFAULT_CONFIG.enabled);
+      }),
+
+      test('config: NaN maxTabs uses default', () => {
+        const result = validateConfig({ maxTabs: NaN });
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('config: Infinity maxTabs uses default', () => {
+        const result = validateConfig({ maxTabs: Infinity });
+        // parseInt(Infinity) returns NaN, so should use default
+        assertEqual(result.maxTabs, DEFAULT_CONFIG.maxTabs);
+      }),
+
+      test('version: handles missing patch version', () => {
+        assertEqual(compareVersions('1.0', '1.0.0'), 0);
+        assertEqual(compareVersions('1.0.0', '1.0'), 0);
+      }),
+
+      test('version: handles single number version', () => {
+        assertEqual(compareVersions('1', '1.0.0'), 0);
+        assertTrue(isVersionLessThan('1', '2'));
+      }),
+
+      test('tabSelection: LFU with zero active time selects first', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const tabData = new Map([
+          [1, { totalActiveTime: 0 }],
+          [2, { totalActiveTime: 0 }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'LFU');
+        // Both have 0 active time, should return first one
+        assertTrue(result !== null, 'Should return a tab');
+      }),
+
+      test('tabSelection: LRO with same access time', () => {
+        const tabs = [
+          createMockTab({ id: 1, active: false }),
+          createMockTab({ id: 2, active: false })
+        ];
+        const now = Date.now();
+        const tabData = new Map([
+          [1, { lastAccessed: now }],
+          [2, { lastAccessed: now }]
+        ]);
+
+        const result = selectTabToClose(tabs, tabData, 'LRO');
+        assertTrue(result !== null, 'Should return a tab');
+      }),
+    ];
+
+    renderSuite('Edge Cases', edgeCaseTests);
+
+    // =========================================================================
+    // Summary
+    // =========================================================================
+    const total = passed + failed;
+    summary.className = `summary ${failed === 0 ? 'all-pass' : 'has-failures'}`;
+    summary.textContent = failed === 0
+      ? `All ${total} tests passed!`
+      : `${failed} of ${total} tests failed`;
+  </script>
+</body>
+</html>

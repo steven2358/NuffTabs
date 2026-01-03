@@ -1,5 +1,4 @@
-'Nuff Tabs
-==========
+# 'Nuff Tabs
 
 Google Chrome extension that allows you to limit the number of open tabs.
 
@@ -12,7 +11,16 @@ Specify the maximum number in the options. When you surpass the limit, an open t
 
 Chrome Store link: [https://chrome.google.com/webstore/detail/kemeihccgedidlokcbfhdekcfojpjjmp](https://chrome.google.com/webstore/detail/kemeihccgedidlokcbfhdekcfojpjjmp)
 
-License
--------
+## Testing
+
+Run some basic tests:
+
+```
+cd path/to/NuffTabs/src
+python3 -m http.server 8080
+# Open http://localhost:8080/test.html
+```
+
+## License
 
 This source code is released under the MIT License.

@@ -20,7 +20,7 @@
       const li = document.createElement('li');
       const a = document.createElement('a');
       a.href = url;
-      a.textContent = title || "[Untitled]";
+      a.textContent = title || '[Untitled]';
       a.title = url;
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -43,12 +43,22 @@
     updateTabList();
   }
 
-  chrome.runtime.sendMessage({ action: 'getDiscardedTabs' }, ({ discardedTabs: tabs }) => {
-    discardedTabs = tabs;
+  // Load discarded tabs with error handling
+  chrome.runtime.sendMessage({ action: 'getDiscardedTabs' }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error loading discarded tabs:', chrome.runtime.lastError);
+      return;
+    }
+    discardedTabs = response?.discardedTabs || [];
     updateTabList();
   });
 
   prevButton.addEventListener('click', () => changePage(-1));
   nextButton.addEventListener('click', () => changePage(1));
-  optionsLink.addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // Fixed: add preventDefault to prevent any default link behavior
+  optionsLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.runtime.openOptionsPage();
+  });
 })();

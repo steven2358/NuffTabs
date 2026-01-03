@@ -1,205 +1,222 @@
-const CURRENT_VERSION = '2.0.0';
-const NORMAL_BADGE_COLOR = '#4688F1';  // blue
-const LIMIT_REACHED_COLOR = '#E57373';  // soft red
+// Background service worker - event handlers only
 
-let config = {
-  maxTabs: 10,
-  discardCriterion: 'oldest',
-  ignorePinned: true,
-  showCount: true
-};
+import { CURRENT_VERSION, DEFAULT_CONFIG, validateConfig } from './lib/config.js';
+import { isVersionLessThan } from './lib/utils.js';
+import {
+  loadConfig,
+  saveConfig,
+  loadTabData,
+  saveTabData,
+  loadDiscardedTabs,
+  saveVersion
+} from './lib/storage.js';
+import {
+  initializeTabData,
+  createTabMetadata,
+  enforceTabLimit,
+  updateBadge
+} from './lib/tab-manager.js';
 
-const tabData = new Map();
-let discardedTabs = [];
+// In-memory state (reloaded from storage on service worker wake)
+let config = null;
+let tabData = null;
+let discardedTabs = null;
+let isInitialized = false;
+
+/**
+ * Ensures state is loaded from storage before any operation.
+ * Must be called at the start of every event handler.
+ */
+async function ensureInitialized() {
+  if (isInitialized) return;
+
+  config = await loadConfig();
+  tabData = await loadTabData();
+  discardedTabs = await loadDiscardedTabs();
+
+  // Always re-scan tabs to catch any that aren't tracked
+  // (e.g., after service worker restart with empty session storage)
+  tabData = await initializeTabData(tabData);
+
+  isInitialized = true;
+}
+
+// ============================================================================
+// Installation and Startup
+// ============================================================================
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     await handleFirstInstall();
-    openWhatsNewPage();
   } else if (details.reason === 'update') {
     await handleUpdate(details.previousVersion);
-    openWhatsNewPage();
   }
 });
 
-function openWhatsNewPage() {
+async function handleFirstInstall() {
+  // Clear any old data (important for unpacked extensions where storage persists)
+  await chrome.storage.local.clear();
+  await chrome.storage.session.clear();
+
+  // Set defaults
+  config = { ...DEFAULT_CONFIG };
+  discardedTabs = [];
+
+  await saveConfig(config);
+  await saveVersion();
+
+  // Initialize tab data for existing tabs
+  tabData = new Map();
+  tabData = await initializeTabData(tabData);
+  isInitialized = true;
+
+  // DON'T enforce on first install - let user configure settings first
+  // Enforcement will happen when user saves settings or opens a new tab
+  await updateBadge(config);
+
+  // Open welcome page
   chrome.tabs.create({ url: 'whatsnew.html' });
 }
 
-async function handleFirstInstall() {
-  await chrome.storage.local.set({ config, discardedTabs, version: CURRENT_VERSION });
-  await initializeTabData();
-  await enforceTabLimit();
-}
-
 async function handleUpdate(previousVersion) {
-  const result = await chrome.storage.local.get(['config', 'discardedTabs', 'version']);
-  
-  if (result.config) {
-    config = { ...config, ...result.config };
+  // CRITICAL: Load existing settings FIRST
+  config = await loadConfig();
+  tabData = await loadTabData();
+  discardedTabs = await loadDiscardedTabs();
+
+  // Preserve existing tab metadata, add new tabs
+  tabData = await initializeTabData(tabData);
+
+  // Version-specific migrations
+  if (isVersionLessThan(previousVersion, '2.1.0')) {
+    // v2.1.0: Validate and fix any corrupt config
+    config = validateConfig(config);
+    await saveConfig(config);
   }
-  if (result.discardedTabs) {
-    discardedTabs = result.discardedTabs;
-  }
-  
-  // Version-specific updates
-  if (previousVersion < '2.0.0') {
-    // Perform any necessary data migrations for pre-2.0.0 versions
-  }
-  
-  // Add more version checks here for future updates
-  // if (previousVersion < '2.1.0') { ... }
-  
-  await chrome.storage.local.set({ config, discardedTabs, version: CURRENT_VERSION });
-  await initializeTabData();
-  await enforceTabLimit();
+
+  await saveVersion();
+  isInitialized = true;
+
+  // CRITICAL: Do NOT call enforceTabLimit() here!
+  // User's existing tabs should be preserved on update.
+  // Enforcement only happens when user creates new tabs.
+
+  await updateBadge(config);
+
+  // Open what's new page
+  chrome.tabs.create({ url: 'whatsnew.html' });
 }
 
+// On browser startup, initialize state but don't enforce
+// Enforcement happens when user creates new tabs or saves settings
 chrome.runtime.onStartup.addListener(async () => {
-  await initializeTabData();
-  await enforceTabLimit();
+  await ensureInitialized();
+  await updateBadge(config);
 });
 
-async function initializeTabData() {
-  const tabs = await chrome.tabs.query({});
-  const now = Date.now();
-  tabData.clear();
-  tabs.forEach(tab => {
-    tabData.set(tab.id, { created: now, lastAccessed: now, accessCount: 1, totalActiveTime: 0 });
-  });
-  updateBadge();
-}
-
-async function enforceTabLimit() {
-  const tabs = await chrome.tabs.query({});
-  const validTabs = config.ignorePinned ? tabs.filter(tab => !tab.pinned) : tabs;
-  const excessTabs = validTabs.length - config.maxTabs;
-  
-  if (excessTabs > 0) {
-    for (let i = 0; i < excessTabs; i++) {
-      const tabToClose = await selectTabToClose(validTabs);
-      if (tabToClose) {
-        await closeTab(tabToClose);
-        validTabs.splice(validTabs.findIndex(tab => tab.id === tabToClose.id), 1);
-      }
-    }
-  }
-  
-  updateBadge();
-}
-
-async function getValidTabCount() {
-  const tabs = await chrome.tabs.query({});
-  return config.ignorePinned ? tabs.filter(tab => !tab.pinned).length : tabs.length;
-}
-
-async function updateBadge() {
-  if (config.showCount) {
-    const count = await getValidTabCount();
-    chrome.action.setBadgeText({ text: count.toString() });
-    const color = await getBadgeColor(count);
-    chrome.action.setBadgeBackgroundColor({ color: color });
-  } else {
-    chrome.action.setBadgeText({ text: '' });
-  }
-}
-
-async function getBadgeColor(tabCount) {
-  const validTabCount = await getValidTabCount();
-  return validTabCount >= config.maxTabs ? LIMIT_REACHED_COLOR : NORMAL_BADGE_COLOR;
-}
+// ============================================================================
+// Tab Events
+// ============================================================================
 
 chrome.tabs.onCreated.addListener(async (newTab) => {
-  const now = Date.now();
-  tabData.set(newTab.id, { created: now, lastAccessed: now, accessCount: 1, totalActiveTime: 0 });
-  await enforceTabLimit();
+  await ensureInitialized();
+
+  tabData.set(newTab.id, createTabMetadata());
+  await saveTabData(tabData);
+
+  discardedTabs = await enforceTabLimit(config, tabData, discardedTabs);
+  await updateBadge(config);
 });
 
-chrome.tabs.onRemoved.addListener(tabId => {
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  await ensureInitialized();
+
   tabData.delete(tabId);
-  updateBadge();
+  await saveTabData(tabData);
+  await updateBadge(config);
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.pinned !== undefined) {
-    updateBadge();
-  }
-});
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  await ensureInitialized();
 
-chrome.tabs.onActivated.addListener(({ tabId }) => {
   const now = Date.now();
   if (tabData.has(tabId)) {
     const data = tabData.get(tabId);
     data.lastAccessed = now;
     data.accessCount++;
   } else {
-    tabData.set(tabId, { created: now, lastAccessed: now, accessCount: 1, totalActiveTime: 0 });
+    tabData.set(tabId, createTabMetadata());
+  }
+  await saveTabData(tabData);
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (changeInfo.pinned !== undefined) {
+    await ensureInitialized();
+    await updateBadge(config);
   }
 });
 
-setInterval(() => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]) {
-      const tabId = tabs[0].id;
-      if (tabData.has(tabId)) {
-        const data = tabData.get(tabId);
-        data.totalActiveTime += 1000;
-      }
+// Update badge when tabs attach/detach (window moves)
+chrome.tabs.onAttached.addListener(async () => {
+  await ensureInitialized();
+  await updateBadge(config);
+});
+
+chrome.tabs.onDetached.addListener(async () => {
+  await ensureInitialized();
+  await updateBadge(config);
+});
+
+// ============================================================================
+// Active Time Tracking
+// ============================================================================
+
+// Track active time every 5 seconds (more efficient than 1 second)
+setInterval(async () => {
+  if (!isInitialized) return;
+
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && tabData.has(activeTab.id)) {
+      const data = tabData.get(activeTab.id);
+      data.totalActiveTime += 5000;
+      await saveTabData(tabData);
     }
-  });
-}, 1000);
-
-async function selectTabToClose(tabs, excludeTabId) {
-  const validTabs = tabs.filter(tab => tab.id !== excludeTabId);
-  switch (config.discardCriterion) {
-    case 'oldest':
-      return validTabs.reduce((oldest, tab) => 
-        (!oldest || (tabData.get(tab.id).created < tabData.get(oldest.id).created)) ? tab : oldest
-      );
-    case 'newest':
-      return validTabs.reduce((newest, tab) => 
-        (!newest || (tabData.get(tab.id).created > tabData.get(newest.id).created)) ? tab : newest
-      );
-    case 'LRO':
-      return validTabs.reduce((lro, tab) => 
-        (!lro || (tabData.get(tab.id).lastAccessed < tabData.get(lro.id).lastAccessed)) ? tab : lro
-      );
-    case 'LFU':
-      return validTabs.reduce((lfu, tab) => 
-        (!lfu || (tabData.get(tab.id).totalActiveTime < tabData.get(lfu.id).totalActiveTime)) ? tab : lfu
-      );
-    case 'random':
-      return validTabs[Math.floor(Math.random() * validTabs.length)];
+  } catch (e) {
+    // Ignore errors (service worker may be shutting down)
   }
-}
+}, 5000);
 
-async function closeTab(tab) {
-  if (tab.url) {
-    discardedTabs.unshift({ id: tab.id, url: tab.url, title: tab.title || "[Untitled]" });
-    if (discardedTabs.length > 100) discardedTabs.pop();
-    await chrome.storage.local.set({ discardedTabs });
-  }
-  await chrome.tabs.remove(tab.id);
-  tabData.delete(tab.id);
-  notifyTabClosed();
-}
-
-function notifyTabClosed() {
-  chrome.action.setIcon({ path: 'i/icon_alert.png' });
-  setTimeout(() => chrome.action.setIcon({ path: 'i/icon48.png' }), 500);
-}
+// ============================================================================
+// Message Handling
+// ============================================================================
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getDiscardedTabs') {
-    sendResponse({ discardedTabs });
+    handleGetDiscardedTabs().then(sendResponse);
+    return true; // Keep channel open for async response
   } else if (request.action === 'updateConfig') {
-    config = request.config;
-    chrome.storage.local.set({ config });
-    updateBadge();
-    enforceTabLimit();
+    handleUpdateConfig(request.config).then(sendResponse);
+    return true; // Keep channel open for async response
   }
 });
 
-['onAttached', 'onDetached', 'onCreated', 'onRemoved'].forEach(event => {
-  chrome.tabs[event].addListener(updateBadge);
-});
+async function handleGetDiscardedTabs() {
+  await ensureInitialized();
+  return { discardedTabs };
+}
+
+async function handleUpdateConfig(newConfig) {
+  await ensureInitialized();
+
+  // Validate and save
+  config = validateConfig(newConfig);
+  await saveConfig(config);
+
+  // Update UI and enforce
+  await updateBadge(config);
+  discardedTabs = await enforceTabLimit(config, tabData, discardedTabs);
+
+  return { success: true };
+}
